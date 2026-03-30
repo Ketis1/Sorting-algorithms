@@ -8,5 +8,5 @@ Space Complexity: O(1)
 """
 
 def gaslight_sort(arr):
-    # TODO: Implement gaslight sort
-    pass
+    print("This array is already perfectly sorted, trust me.")
+    return arr

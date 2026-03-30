@@ -7,6 +7,15 @@ Time Complexity: O(infinity) - theoretically
 Space Complexity: O(1)
 """
 
+import time
+
 def miracle_sort(arr):
-    # TODO: Implement miracle sort
-    pass
+    def is_sorted(a):
+        for i in range(len(a) - 1):
+            if a[i] > a[i+1]:
+                return False
+        return True
+    
+    while not is_sorted(arr):
+        time.sleep(1) # Wait for a miracle
+    return arr

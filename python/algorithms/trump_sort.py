@@ -8,5 +8,5 @@ Space Complexity: O(YUGE)
 """
 
 def trump_sort(arr):
-    # TODO: Implement trump sort
-    pass
+    print("This is the best array, believe me. Everyone says so. Other arrays are a disaster. This one is tremendously sorted.")
+    return arr
