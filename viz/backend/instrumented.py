@@ -107,17 +107,22 @@ class StepRecorder:
     def record_access(self, index: int, array: list[Any]) -> None:
         self._append({"type": "access", "indices": [index]}, array)
 
-    def record_set(self, index: int, value: Any, array: list[Any], swapped: bool = False) -> None:
-        if swapped:
-            self.swaps += 1
-            event_type = "swap"
-        else:
-            event_type = "set"
+    def record_set(self, index: int, value: Any, array: list[Any]) -> None:
         self._append(
             {
-                "type": event_type,
+                "type": "set",
                 "indices": [index],
                 "value": _unwrap(value),
+            },
+            array,
+        )
+
+    def record_swap(self, source_index: int, dest_index: int, array: list[Any]) -> None:
+        self.swaps += 1
+        self._append(
+            {
+                "type": "swap",
+                "indices": [source_index, dest_index],
             },
             array,
         )
@@ -153,13 +158,26 @@ class InstrumentedList(list):
     def __setitem__(self, index, value):
         if isinstance(index, int):
             old_value = super().__getitem__(index)
-            swapped = isinstance(value, TrackedValue) and value is not super().__getitem__(index)
+            source_index = value.index if isinstance(value, TrackedValue) else None
+            is_swap = (
+                isinstance(value, TrackedValue)
+                and isinstance(old_value, TrackedValue)
+                and source_index is not None
+                and source_index != index
+                and value is not old_value
+            )
+
             if not isinstance(value, TrackedValue):
                 value = TrackedValue(_unwrap(value), self.recorder, index)
             else:
                 value.index = index
+
             super().__setitem__(index, value)
-            self.recorder.record_set(index, value, self, swapped=swapped and old_value is not value)
+
+            if is_swap:
+                self.recorder.record_swap(source_index, index, self)
+            else:
+                self.recorder.record_set(index, value, self)
             return
 
         super().__setitem__(index, value)

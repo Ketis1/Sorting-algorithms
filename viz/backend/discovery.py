@@ -25,6 +25,8 @@ PARTIAL_ALGORITHMS = {
     "stalin_sort",
 }
 
+_ALGORITHM_CACHE: dict[Path, list["AlgorithmInfo"]] = {}
+
 
 @dataclass
 class AlgorithmInfo:
@@ -95,7 +97,24 @@ def _default_viz_tier(algorithm_id: str, module: Any) -> str:
 
 
 def discover_algorithms(algorithms_dir: Path | None = None) -> list[AlgorithmInfo]:
-    directory = algorithms_dir or ALGORITHMS_DIR
+    directory = (algorithms_dir or ALGORITHMS_DIR).resolve()
+    cached = _ALGORITHM_CACHE.get(directory)
+    if cached is not None:
+        return cached
+
+    algorithms = _discover_algorithms_uncached(directory)
+    _ALGORITHM_CACHE[directory] = algorithms
+    return algorithms
+
+
+def get_algorithm_info(algorithm_id: str, algorithms_dir: Path | None = None) -> AlgorithmInfo:
+    for algorithm in discover_algorithms(algorithms_dir):
+        if algorithm.id == algorithm_id:
+            return algorithm
+    raise KeyError(f"Algorithm not found: {algorithm_id}")
+
+
+def _discover_algorithms_uncached(directory: Path) -> list[AlgorithmInfo]:
     overrides = _load_overrides()
     algorithms: list[AlgorithmInfo] = []
 

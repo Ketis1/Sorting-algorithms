@@ -49,22 +49,45 @@ function setStatus(message = "", isWarning = false) {
   statusMessage.style.color = isWarning ? "var(--warning)" : "var(--muted)";
 }
 
+function clearElement(element) {
+  while (element.firstChild) {
+    element.removeChild(element.firstChild);
+  }
+}
+
 function updateAlgorithmMeta() {
   const algorithm = getSelectedAlgorithm();
   if (!algorithm) {
     return;
   }
 
+  clearElement(algorithmDescription);
+
+  const name = document.createElement("strong");
+  name.textContent = algorithm.name;
+  algorithmDescription.appendChild(name);
+  algorithmDescription.appendChild(document.createElement("br"));
+
+  const description = document.createElement("span");
+  description.textContent = algorithm.description || "No description available.";
+  algorithmDescription.appendChild(description);
+
   const complexity = [algorithm.time_complexity, algorithm.space_complexity]
     .filter(Boolean)
     .join(" · ");
+  if (complexity) {
+    algorithmDescription.appendChild(document.createElement("br"));
+    const complexityNode = document.createElement("span");
+    complexityNode.textContent = complexity;
+    algorithmDescription.appendChild(complexityNode);
+  }
 
-  algorithmDescription.innerHTML = `
-    <strong>${algorithm.name}</strong><br />
-    ${algorithm.description || "No description available."}
-    ${complexity ? `<br /><span>${complexity}</span>` : ""}
-    ${algorithm.reason ? `<br /><em>${algorithm.reason}</em>` : ""}
-  `;
+  if (algorithm.reason) {
+    algorithmDescription.appendChild(document.createElement("br"));
+    const reason = document.createElement("em");
+    reason.textContent = algorithm.reason;
+    algorithmDescription.appendChild(reason);
+  }
 }
 
 function updateStats() {
@@ -105,12 +128,13 @@ async function fetchAlgorithms() {
     throw new Error("Failed to load algorithms");
   }
   state.algorithms = await response.json();
-  algorithmSelect.innerHTML = state.algorithms
-    .map(
-      (algorithm) =>
-        `<option value="${algorithm.id}">${algorithm.name} (${algorithm.viz_tier})</option>`,
-    )
-    .join("");
+  algorithmSelect.replaceChildren();
+  for (const algorithm of state.algorithms) {
+    const option = document.createElement("option");
+    option.value = algorithm.id;
+    option.textContent = `${algorithm.name} (${algorithm.viz_tier})`;
+    algorithmSelect.appendChild(option);
+  }
   updateAlgorithmMeta();
 }
 

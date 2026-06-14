@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import io
-import sys
-import threading
+import multiprocessing
 from contextlib import redirect_stdout
 from typing import Any
 
 from backend.config import DEFAULT_MAX_STEPS, DEFAULT_TIMEOUT_MS
-from backend.discovery import discover_algorithms, load_algorithm_function
+from backend.discovery import get_algorithm_info, load_algorithm_function
 from backend.instrumented import InstrumentedList, StepRecorder
 
 
@@ -19,31 +18,97 @@ class SortTimeoutError(SortExecutionError):
     pass
 
 
-def _get_algorithm_info(algorithm_id: str):
-    for algorithm in discover_algorithms():
-        if algorithm.id == algorithm_id:
-            return algorithm
-    raise KeyError(f"Algorithm not found: {algorithm_id}")
+def _unwrap_value(value: Any) -> Any:
+    if hasattr(value, "value"):
+        return value.value
+    return value
 
 
-def _run_with_timeout(fn, timeout_ms: int):
-    result: dict[str, Any] = {}
-    error: list[Exception] = []
+def _worker_plain_sort(payload: dict[str, Any]) -> dict[str, Any]:
+    algorithm_id = payload["algorithm_id"]
+    initial = payload["initial"]
+    sort_fn = load_algorithm_function(algorithm_id)
+    buffer = io.StringIO()
 
-    def target():
-        try:
-            result["value"] = fn()
-        except Exception as exc:  # noqa: BLE001
-            error.append(exc)
+    with redirect_stdout(buffer):
+        working = initial.copy()
+        result = sort_fn(working)
+        if isinstance(result, list):
+            plain_result = [_unwrap_value(item) for item in result]
+        else:
+            plain_result = working
 
-    thread = threading.Thread(target=target, daemon=True)
-    thread.start()
-    thread.join(timeout_ms / 1000)
-    if thread.is_alive():
+    output = buffer.getvalue().strip()
+    return {
+        "result": plain_result,
+        "messages": [output] if output else [],
+    }
+
+
+def _worker_instrumented_sort(payload: dict[str, Any]) -> dict[str, Any]:
+    algorithm_id = payload["algorithm_id"]
+    initial = payload["initial"]
+    max_steps = payload["max_steps"]
+    sort_fn = load_algorithm_function(algorithm_id)
+    buffer = io.StringIO()
+    recorder = StepRecorder(max_steps=max_steps)
+    instrumented = InstrumentedList(initial.copy(), recorder)
+
+    with redirect_stdout(buffer):
+        returned = sort_fn(instrumented)
+        if isinstance(returned, list) and returned is not instrumented:
+            plain = [_unwrap_value(item) for item in returned]
+            instrumented.clear()
+            instrumented.extend(plain)
+            recorder.record_state("result", instrumented)
+            result = plain
+        else:
+            result = instrumented.to_plain()
+
+    output = buffer.getvalue().strip()
+    return {
+        "result": result,
+        "steps": recorder.steps,
+        "stats": {
+            "comparisons": recorder.comparisons,
+            "swaps": recorder.swaps,
+            "steps": len(recorder.steps),
+            "truncated": recorder._truncated,
+        },
+        "messages": [output] if output else [],
+    }
+
+
+def _process_target(worker, payload: dict[str, Any], queue: multiprocessing.Queue) -> None:
+    try:
+        queue.put({"status": "ok", "payload": worker(payload)})
+    except Exception as exc:  # noqa: BLE001
+        queue.put({"status": "error", "error": str(exc)})
+
+
+def _run_in_process(worker, payload: dict[str, Any], timeout_ms: int) -> dict[str, Any]:
+    ctx = multiprocessing.get_context("spawn")
+    queue: multiprocessing.Queue = ctx.Queue()
+
+    process = ctx.Process(target=_process_target, args=(worker, payload, queue))
+    process.start()
+    process.join(timeout_ms / 1000)
+
+    if process.is_alive():
+        process.terminate()
+        process.join(timeout=1)
+        if process.is_alive():
+            process.kill()
+            process.join()
         raise SortTimeoutError(f"Algorithm exceeded timeout of {timeout_ms}ms")
-    if error:
-        raise error[0]
-    return result.get("value")
+
+    if queue.empty():
+        raise SortExecutionError("Sort process ended without returning a result")
+
+    outcome = queue.get()
+    if outcome["status"] == "error":
+        raise SortExecutionError(outcome["error"])
+    return outcome["payload"]
 
 
 def _result_only_steps(initial: list[int], result: list[int]) -> list[dict[str, Any]]:
@@ -64,47 +129,38 @@ def run_sort(
     if any(not isinstance(value, int) for value in array):
         raise ValueError("Array must contain integers only")
 
-    algorithm = _get_algorithm_info(algorithm_id)
+    algorithm = get_algorithm_info(algorithm_id)
     effective_timeout = timeout_ms if timeout_ms is not None else algorithm.timeout_ms or DEFAULT_TIMEOUT_MS
     warnings: list[str] = []
     messages: list[str] = []
+    initial = array.copy()
 
     if algorithm.viz_tier == "disabled":
         return {
             "algorithm": algorithm_id,
-            "initial": array.copy(),
-            "steps": _result_only_steps(array, array.copy()),
-            "result": array.copy(),
+            "initial": initial,
+            "steps": _result_only_steps(initial, initial.copy()),
+            "result": initial.copy(),
             "viz_tier": algorithm.viz_tier,
             "warnings": [algorithm.reason or "This algorithm is disabled for visualization."],
             "messages": messages,
             "stats": {"comparisons": 0, "swaps": 0, "steps": 2, "truncated": False},
         }
 
-    sort_fn = load_algorithm_function(algorithm_id)
-    initial = array.copy()
-    recorder = StepRecorder(max_steps=max_steps)
+    payload = {
+        "algorithm_id": algorithm_id,
+        "initial": initial,
+        "max_steps": max_steps,
+    }
 
     if algorithm.viz_tier == "result_only":
-        buffer = io.StringIO()
-
-        def execute_plain():
-            working = initial.copy()
-            with redirect_stdout(buffer):
-                result = sort_fn(working)
-            if isinstance(result, list):
-                return [_unwrap_value(item) for item in result]
-            return working
-
         try:
-            result = _run_with_timeout(execute_plain, effective_timeout)
+            worker_result = _run_in_process(_worker_plain_sort, payload, effective_timeout)
+            result = worker_result["result"]
+            messages.extend(worker_result.get("messages", []))
         except SortTimeoutError:
             warnings.append(f"Algorithm exceeded timeout of {effective_timeout}ms")
             result = initial.copy()
-
-        output = buffer.getvalue().strip()
-        if output:
-            messages.append(output)
 
         steps = _result_only_steps(initial, result)
         if algorithm.reason:
@@ -126,60 +182,42 @@ def run_sort(
             },
         }
 
-    instrumented = InstrumentedList(initial.copy(), recorder)
-    buffer = io.StringIO()
-
-    def execute_instrumented():
-        with redirect_stdout(buffer):
-            returned = sort_fn(instrumented)
-        if isinstance(returned, list) and returned is not instrumented:
-            plain = [_unwrap_value(item) for item in returned]
-            instrumented.clear()
-            instrumented.extend(plain)
-            recorder.record_state("result", instrumented)
-            return plain
-        return instrumented.to_plain()
-
     try:
-        result = _run_with_timeout(execute_instrumented, effective_timeout)
+        worker_result = _run_in_process(_worker_instrumented_sort, payload, effective_timeout)
     except SortTimeoutError:
         warnings.append(f"Algorithm exceeded timeout of {effective_timeout}ms")
-        result = instrumented.to_plain()
-    except Exception as exc:  # noqa: BLE001
-        raise SortExecutionError(str(exc)) from exc
+        return {
+            "algorithm": algorithm_id,
+            "initial": initial,
+            "steps": _result_only_steps(initial, initial.copy()),
+            "result": initial.copy(),
+            "viz_tier": algorithm.viz_tier,
+            "warnings": warnings,
+            "messages": messages,
+            "stats": {"comparisons": 0, "swaps": 0, "steps": 2, "truncated": False},
+        }
 
-    output = buffer.getvalue().strip()
-    if output:
-        messages.append(output)
+    result = worker_result["result"]
+    steps = worker_result.get("steps", [])
+    stats = worker_result.get("stats", {})
+    messages.extend(worker_result.get("messages", []))
 
     if algorithm.reason and algorithm.viz_tier != "full":
         warnings.append(algorithm.reason)
 
-    if recorder._truncated:
+    if stats.get("truncated"):
         warnings.append(f"Step recording stopped at {max_steps} events")
 
-    if not recorder.steps:
-        recorder.record_state("initial", instrumented)
-        recorder.record_state("result", instrumented)
+    if not steps:
+        steps = _result_only_steps(initial, result)
 
     return {
         "algorithm": algorithm_id,
         "initial": initial,
-        "steps": recorder.steps,
+        "steps": steps,
         "result": result,
         "viz_tier": algorithm.viz_tier,
         "warnings": warnings,
         "messages": messages,
-        "stats": {
-            "comparisons": recorder.comparisons,
-            "swaps": recorder.swaps,
-            "steps": len(recorder.steps),
-            "truncated": recorder._truncated,
-        },
+        "stats": stats,
     }
-
-
-def _unwrap_value(value: Any) -> Any:
-    if hasattr(value, "value"):
-        return value.value
-    return value
