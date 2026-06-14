@@ -1,27 +1,24 @@
+import logging
+
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from backend.config import FRONTEND_DIR
+from backend.config import FRONTEND_DIR, MAX_ARRAY_LENGTH
 from backend.discovery import discover_algorithms
+from backend.middleware import SecurityHeadersMiddleware
 from backend.runner import SortExecutionError, run_sort
 
-app = FastAPI(title="Sorting Algorithm Visualizer", version="1.0.0")
+logger = logging.getLogger(__name__)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = FastAPI(title="Sorting Algorithm Visualizer", version="1.0.0")
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 class SortRequest(BaseModel):
     algorithm: str
-    array: list[int] = Field(min_length=1)
+    array: list[int] = Field(min_length=1, max_length=MAX_ARRAY_LENGTH)
     max_steps: int = Field(default=5000, ge=1, le=20000)
     timeout_ms: int | None = Field(default=None, ge=100, le=30000)
 
@@ -45,7 +42,8 @@ def sort_array(request: SortRequest):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except SortExecutionError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.exception("Sort execution failed for algorithm %s", request.algorithm)
+        raise HTTPException(status_code=500, detail="Sort execution failed") from exc
 
 
 @app.get("/")

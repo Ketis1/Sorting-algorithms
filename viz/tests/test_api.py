@@ -1,8 +1,11 @@
 import pytest
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 
 from backend.discovery import clear_algorithm_cache
 from backend.main import app
+from backend.runner import SortExecutionError
+from backend.security import SECURITY_HEADERS
 
 
 @pytest.fixture(autouse=True)
@@ -50,3 +53,28 @@ def test_sort_rejects_unknown_algorithm(client):
         json={"algorithm": "missing_sort", "array": [1, 2, 3]},
     )
     assert response.status_code == 404
+
+
+def test_sort_rejects_oversized_array(client):
+    response = client.post(
+        "/api/sort",
+        json={"algorithm": "bubble_sort", "array": list(range(1, 82))},
+    )
+    assert response.status_code == 422
+
+
+def test_security_headers_are_set(client):
+    response = client.get("/")
+    for header, value in SECURITY_HEADERS.items():
+        assert response.headers.get(header) == value
+
+
+def test_sort_execution_error_returns_generic_message(client):
+    with patch("backend.main.run_sort", side_effect=SortExecutionError("sensitive internals")):
+        response = client.post(
+            "/api/sort",
+            json={"algorithm": "bubble_sort", "array": [3, 1, 2]},
+        )
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Sort execution failed"
+    assert "sensitive" not in response.json()["detail"]

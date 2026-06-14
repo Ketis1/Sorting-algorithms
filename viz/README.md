@@ -80,8 +80,17 @@ curl -X POST http://localhost:8000/api/sort \
 viz/
 ├── backend/          # FastAPI app, discovery, instrumentation, runner
 ├── frontend/         # Static HTML/CSS/JS visualizer
+├── tests/            # pytest suite
 ├── requirements.txt
 └── README.md
 ```
 
 The viz module only depends on the algorithms folder path (`../python/algorithms/`) and does not require modifying existing algorithm files.
+
+## Security notes
+
+- Dynamic UI text is rendered with `textContent` (not `innerHTML`).
+- `POST /api/sort` validates `algorithm_id` against an allowlist and caps array length at 80.
+- Security headers (CSP, `X-Content-Type-Options`, `X-Frame-Options`) are applied to all responses.
+- CORS middleware is not enabled; the UI is served from the same origin as the API.
+- Algorithm metadata from docstrings / `VIZ_META` is coerced to safe string types before export.

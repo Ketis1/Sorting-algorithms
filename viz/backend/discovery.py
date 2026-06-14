@@ -9,6 +9,7 @@ from typing import Any
 import yaml
 
 from backend.config import ALGORITHMS_DIR, OVERRIDES_PATH
+from backend.security import sanitize_text, sanitize_timeout_ms, sanitize_viz_tier
 
 logger = logging.getLogger(__name__)
 
@@ -92,9 +93,10 @@ def _load_overrides() -> dict[str, dict[str, Any]]:
 def _default_viz_tier(algorithm_id: str, module: Any) -> str:
     if hasattr(module, "VIZ_META"):
         meta = getattr(module, "VIZ_META") or {}
-        tier = meta.get("tier") or meta.get("viz_tier")
-        if tier:
-            return tier
+        if isinstance(meta, dict):
+            tier = meta.get("tier") or meta.get("viz_tier")
+            if tier is not None:
+                return sanitize_viz_tier(tier)
     if algorithm_id in PARTIAL_ALGORITHMS:
         return "partial"
     return "full"
@@ -168,22 +170,30 @@ def _discover_algorithms_uncached(directory: Path) -> list[AlgorithmInfo]:
             continue
 
         override = overrides.get(algorithm_id, {})
-        viz_tier = override.get("viz_tier", _default_viz_tier(algorithm_id, module))
-        reason = override.get("reason")
-        timeout_ms = override.get("timeout_ms")
+        if not isinstance(override, dict):
+            override = {}
+
+        viz_tier = sanitize_viz_tier(
+            override.get("viz_tier"),
+            default=_default_viz_tier(algorithm_id, module),
+        )
+        reason = sanitize_text(override.get("reason"))
+        timeout_ms = sanitize_timeout_ms(override.get("timeout_ms"))
 
         if hasattr(module, "VIZ_META"):
             meta = getattr(module, "VIZ_META") or {}
-            reason = reason or meta.get("reason")
-            timeout_ms = timeout_ms if timeout_ms is not None else meta.get("timeout_ms")
+            if isinstance(meta, dict):
+                reason = reason or sanitize_text(meta.get("reason"))
+                if timeout_ms is None:
+                    timeout_ms = sanitize_timeout_ms(meta.get("timeout_ms"))
 
         algorithms.append(
             AlgorithmInfo(
                 id=algorithm_id,
                 name=_humanize(algorithm_id),
-                description=description,
-                time_complexity=time_complexity,
-                space_complexity=space_complexity,
+                description=sanitize_text(description) or "",
+                time_complexity=sanitize_text(time_complexity),
+                space_complexity=sanitize_text(space_complexity),
                 viz_tier=viz_tier,
                 reason=reason,
                 timeout_ms=timeout_ms,
