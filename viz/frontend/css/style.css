@@ -1,0 +1,176 @@
+:root {
+  color-scheme: dark;
+  --bg: #0f1419;
+  --panel: #1a2332;
+  --panel-border: #2b3a52;
+  --text: #e8eef7;
+  --muted: #9db0c7;
+  --accent: #4f8cff;
+  --accent-hover: #6ea1ff;
+  --bar: #3d6db3;
+  --compare: #f0b429;
+  --swap: #ef5f5f;
+  --mark: #3ecf8e;
+  --warning: #ffb454;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, #172033 0%, var(--bg) 55%);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.header h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--muted);
+}
+
+.panel {
+  background: color-mix(in srgb, var(--panel) 92%, black);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 20px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.controls {
+  display: grid;
+  gap: 16px;
+}
+
+.control-group {
+  display: grid;
+  gap: 8px;
+}
+
+label {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+select,
+input[type="range"] {
+  width: 100%;
+}
+
+select,
+button {
+  font: inherit;
+}
+
+select {
+  background: #101826;
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.meta {
+  display: grid;
+  gap: 12px;
+}
+
+#algorithm-description {
+  line-height: 1.5;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: var(--muted);
+}
+
+.status-message {
+  min-height: 1.25rem;
+  color: var(--warning);
+}
+
+.chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  min-height: 360px;
+  padding: 12px 8px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+  border-radius: 12px;
+}
+
+.bar {
+  flex: 1 1 0;
+  min-width: 4px;
+  border-radius: 6px 6px 2px 2px;
+  background: var(--bar);
+  transition: height 0.08s linear, background 0.08s linear;
+}
+
+.bar.compare {
+  background: var(--compare);
+}
+
+.bar.swap {
+  background: var(--swap);
+}
+
+.bar.mark {
+  background: var(--mark);
+}
+
+.bar.access {
+  background: color-mix(in srgb, var(--compare) 60%, var(--bar));
+}
+
+@media (min-width: 900px) {
+  .controls {
+    grid-template-columns: 2fr 1fr 1fr;
+    align-items: end;
+  }
+
+  .button-row {
+    grid-column: 1 / -1;
+  }
+}

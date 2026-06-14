@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sorting Algorithm Visualizer</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <div>
+          <h1>Sorting Algorithm Visualizer</h1>
+          <p class="subtitle">Algorithms are auto-discovered from <code>python/algorithms/</code></p>
+        </div>
+      </header>
+
+      <section class="controls panel">
+        <div class="control-group">
+          <label for="algorithm-select">Algorithm</label>
+          <select id="algorithm-select"></select>
+        </div>
+
+        <div class="control-group">
+          <label for="array-size">Array size: <span id="array-size-value">30</span></label>
+          <input id="array-size" type="range" min="10" max="80" value="30" />
+        </div>
+
+        <div class="control-group">
+          <label for="speed">Speed: <span id="speed-value">50</span> ms</label>
+          <input id="speed" type="range" min="5" max="500" value="50" />
+        </div>
+
+        <div class="button-row">
+          <button id="shuffle-btn" type="button">Shuffle</button>
+          <button id="play-btn" type="button">Play</button>
+          <button id="pause-btn" type="button" disabled>Pause</button>
+          <button id="step-btn" type="button">Step</button>
+          <button id="reset-btn" type="button">Reset</button>
+        </div>
+      </section>
+
+      <section class="meta panel">
+        <div id="algorithm-description">Loading algorithms...</div>
+        <div class="stats">
+          <span>Step: <strong id="step-count">0</strong>/<strong id="step-total">0</strong></span>
+          <span>Comparisons: <strong id="compare-count">0</strong></span>
+          <span>Swaps: <strong id="swap-count">0</strong></span>
+          <span>Tier: <strong id="viz-tier">-</strong></span>
+        </div>
+        <div id="status-message" class="status-message"></div>
+      </section>
+
+      <section class="visualizer panel">
+        <div id="chart" class="chart" aria-label="Sorting visualization"></div>
+      </section>
+    </div>
+
+    <script type="module" src="/static/js/app.js"></script>
+  </body>
+</html>

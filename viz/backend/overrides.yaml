@@ -1,0 +1,20 @@
+miracle_sort:
+  viz_tier: disabled
+  reason: "Blocks indefinitely"
+bogo_sort:
+  viz_tier: disabled
+  timeout_ms: 500
+  reason: "Non-deterministic, unbounded runtime"
+quick_sort:
+  viz_tier: result_only
+  reason: "Creates new lists; in-place steps not captured"
+gaslight_sort:
+  viz_tier: result_only
+trump_sort:
+  viz_tier: result_only
+thanos_sort:
+  viz_tier: partial
+  reason: "Randomly removes elements; visualization may be incomplete"
+stalin_sort:
+  viz_tier: partial
+  reason: "Removes out-of-order elements"
