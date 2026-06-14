@@ -99,6 +99,16 @@ function updateStats() {
   vizTier.textContent = state.sortResult?.viz_tier ?? getSelectedAlgorithm()?.viz_tier ?? "-";
 }
 
+function resolveStepArray(stepIndex) {
+  for (let index = stepIndex; index >= 0; index -= 1) {
+    const array = state.steps[index]?.array;
+    if (array) {
+      return array;
+    }
+  }
+  return state.sortResult?.initial ?? state.currentArray;
+}
+
 function renderCurrentStep() {
   if (!state.steps.length) {
     visualizer.render(state.currentArray);
@@ -108,7 +118,8 @@ function renderCurrentStep() {
 
   const step = state.steps[Math.min(state.stepIndex, state.steps.length - 1)];
   const highlights = highlightsFromStep(step);
-  visualizer.render(step.array, highlights);
+  const array = step.array ?? resolveStepArray(state.stepIndex);
+  visualizer.render(array, highlights);
   updateStats();
 }
 
@@ -141,9 +152,11 @@ async function fetchAlgorithms() {
 async function runSort() {
   stopPlayback();
   setStatus("Running sort...");
+  playBtn.disabled = true;
 
   const algorithm = getSelectedAlgorithm();
   if (!algorithm) {
+    playBtn.disabled = false;
     setStatus("No algorithm selected.", true);
     return;
   }
@@ -154,27 +167,34 @@ async function runSort() {
     max_steps: 5000,
   };
 
-  const response = await fetch("/api/sort", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  try {
+    const response = await fetch("/api/sort", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-  const data = await response.json();
-  if (!response.ok) {
-    setStatus(data.detail || "Sort request failed.", true);
-    return;
+    const data = await response.json();
+    if (!response.ok) {
+      const detail = Array.isArray(data.detail)
+        ? data.detail.map((item) => item.msg).join(", ")
+        : data.detail;
+      setStatus(detail || "Sort request failed.", true);
+      return;
+    }
+
+    state.sortResult = data;
+    state.steps = data.steps || [];
+    state.stepIndex = 0;
+    state.currentArray = data.initial;
+
+    const warnings = [...(data.warnings || []), ...(data.messages || [])];
+    setStatus(warnings.join(" · "), warnings.length > 0);
+
+    renderCurrentStep();
+  } finally {
+    playBtn.disabled = false;
   }
-
-  state.sortResult = data;
-  state.steps = data.steps || [];
-  state.stepIndex = 0;
-  state.currentArray = data.initial;
-
-  const warnings = [...(data.warnings || []), ...(data.messages || [])];
-  setStatus(warnings.join(" · "), warnings.length > 0);
-
-  renderCurrentStep();
 }
 
 function resetVisualization() {

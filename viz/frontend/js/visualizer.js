@@ -18,7 +18,7 @@ export class Visualizer {
     this.maxValue = Math.max(...array, 1);
 
     if (this.bars.length !== array.length) {
-      this.container.innerHTML = "";
+      this.container.replaceChildren();
       this.bars = array.map((value) => {
         const bar = document.createElement("div");
         bar.className = COLORS.default;

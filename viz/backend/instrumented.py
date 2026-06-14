@@ -85,12 +85,19 @@ class StepRecorder:
     def snapshot(self, array: list[Any]) -> list[Any]:
         return [_unwrap(item) for item in array]
 
-    def _append(self, event: dict[str, Any], array: list[Any]) -> None:
+    def _append(self, event: dict[str, Any], array: list[Any], *, include_snapshot: bool = True) -> None:
         if len(self.steps) >= self.max_steps:
             self._truncated = True
             return
-        event["array"] = self.snapshot(array)
+        if include_snapshot:
+            event["array"] = self.snapshot(array)
         self.steps.append(event)
+
+    def _same_swap_pair(self, left: int, right: int) -> bool:
+        if not self.steps or self.steps[-1].get("type") != "swap":
+            return False
+        previous = frozenset(self.steps[-1].get("indices", []))
+        return previous == frozenset((left, right))
 
     def record_compare(self, left: int | None, right: int | None, op: str) -> None:
         self.comparisons += 1
@@ -102,10 +109,11 @@ class StepRecorder:
                 "op": op,
             },
             self._current_array,
+            include_snapshot=False,
         )
 
     def record_access(self, index: int, array: list[Any]) -> None:
-        self._append({"type": "access", "indices": [index]}, array)
+        self._append({"type": "access", "indices": [index]}, array, include_snapshot=False)
 
     def record_set(self, index: int, value: Any, array: list[Any]) -> None:
         self._append(
@@ -118,6 +126,11 @@ class StepRecorder:
         )
 
     def record_swap(self, source_index: int, dest_index: int, array: list[Any]) -> None:
+        if self._same_swap_pair(source_index, dest_index):
+            if self.steps and len(self.steps) < self.max_steps:
+                self.steps[-1]["array"] = self.snapshot(array)
+            return
+
         self.swaps += 1
         self._append(
             {

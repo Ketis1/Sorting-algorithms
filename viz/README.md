@@ -19,6 +19,14 @@ uvicorn backend.main:app --reload --port 8000
 
 Open [http://localhost:8000](http://localhost:8000).
 
+## Tests
+
+```bash
+cd viz
+pip install -r requirements.txt
+PYTHONPATH=. pytest tests/ -v
+```
+
 ## Adding a new algorithm
 
 1. Add `python/algorithms/my_sort.py` with a function matching the filename:

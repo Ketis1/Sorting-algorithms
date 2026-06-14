@@ -1,5 +1,6 @@
 import ast
 import importlib.util
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,8 +10,11 @@ import yaml
 
 from backend.config import ALGORITHMS_DIR, OVERRIDES_PATH
 
+logger = logging.getLogger(__name__)
+
 TIME_RE = re.compile(r"Time Complexity:\s*(.+)", re.IGNORECASE)
 SPACE_RE = re.compile(r"Space Complexity:\s*(.+)", re.IGNORECASE)
+ALGORITHM_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
 PARTIAL_ALGORITHMS = {
     "merge_sort",
@@ -107,11 +111,34 @@ def discover_algorithms(algorithms_dir: Path | None = None) -> list[AlgorithmInf
     return algorithms
 
 
+def clear_algorithm_cache() -> None:
+    _ALGORITHM_CACHE.clear()
+
+
 def get_algorithm_info(algorithm_id: str, algorithms_dir: Path | None = None) -> AlgorithmInfo:
+    validate_algorithm_id(algorithm_id, algorithms_dir)
     for algorithm in discover_algorithms(algorithms_dir):
         if algorithm.id == algorithm_id:
             return algorithm
     raise KeyError(f"Algorithm not found: {algorithm_id}")
+
+
+def validate_algorithm_id(algorithm_id: str, algorithms_dir: Path | None = None) -> Path:
+    directory = (algorithms_dir or ALGORITHMS_DIR).resolve()
+    if not ALGORITHM_ID_PATTERN.match(algorithm_id):
+        raise ValueError(f"Invalid algorithm id: {algorithm_id}")
+
+    path = (directory / f"{algorithm_id}.py").resolve()
+    if not path.is_relative_to(directory):
+        raise ValueError(f"Invalid algorithm id: {algorithm_id}")
+    if not path.exists():
+        raise KeyError(f"Algorithm not found: {algorithm_id}")
+
+    known_ids = {algorithm.id for algorithm in discover_algorithms(directory)}
+    if algorithm_id not in known_ids:
+        raise KeyError(f"Algorithm not found: {algorithm_id}")
+
+    return path
 
 
 def _discover_algorithms_uncached(directory: Path) -> list[AlgorithmInfo]:
@@ -132,7 +159,8 @@ def _discover_algorithms_uncached(directory: Path) -> list[AlgorithmInfo]:
         module = importlib.util.module_from_spec(spec)
         try:
             spec.loader.exec_module(module)
-        except Exception:
+        except Exception as exc:
+            logger.warning("Skipping algorithm %s: %s", path.name, exc)
             continue
 
         sort_fn = getattr(module, algorithm_id, None)
@@ -166,10 +194,7 @@ def _discover_algorithms_uncached(directory: Path) -> list[AlgorithmInfo]:
 
 
 def load_algorithm_function(algorithm_id: str, algorithms_dir: Path | None = None):
-    directory = algorithms_dir or ALGORITHMS_DIR
-    path = directory / f"{algorithm_id}.py"
-    if not path.exists():
-        raise KeyError(f"Algorithm not found: {algorithm_id}")
+    path = validate_algorithm_id(algorithm_id, algorithms_dir)
 
     spec = importlib.util.spec_from_file_location(algorithm_id, path)
     if spec is None or spec.loader is None:
