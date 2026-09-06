@@ -6,9 +6,12 @@ from contextlib import redirect_stdout
 from queue import Empty
 from typing import Any
 
-from backend.config import DEFAULT_MAX_STEPS, DEFAULT_TIMEOUT_MS
+from backend.config import DEFAULT_MAX_STEPS, DEFAULT_TIMEOUT_MS, MAX_HISTOGRAM_RANGE
 from backend.discovery import get_algorithm_info, load_algorithm_function
 from backend.instrumented import InstrumentedList, StepRecorder
+
+
+HISTOGRAM_ALGORITHMS = {"counting_sort", "pigeonhole_sort"}
 
 
 class SortExecutionError(Exception):
@@ -142,6 +145,14 @@ def run_sort(
     warnings: list[str] = []
     messages: list[str] = []
     initial = array.copy()
+
+    if algorithm_id in HISTOGRAM_ALGORITHMS and initial:
+        value_range = max(initial) - min(initial) + 1
+        if value_range > MAX_HISTOGRAM_RANGE:
+            raise ValueError(
+                f"Value range {value_range} exceeds visualization limit of {MAX_HISTOGRAM_RANGE} "
+                f"for {algorithm_id}"
+            )
 
     if algorithm.viz_tier == "disabled":
         return {

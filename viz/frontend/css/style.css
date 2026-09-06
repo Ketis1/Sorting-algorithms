@@ -67,21 +67,40 @@ label {
 }
 
 select,
-input[type="range"] {
+input[type="range"],
+input[type="number"] {
   width: 100%;
 }
 
 select,
-button {
+button,
+input[type="number"] {
   font: inherit;
 }
 
-select {
+select,
+input[type="number"] {
   background: #101826;
   color: var(--text);
   border: 1px solid var(--panel-border);
   border-radius: 10px;
   padding: 10px 12px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.checkbox-label input {
+  width: auto;
+}
+
+.array-range-controls[hidden] {
+  display: none;
 }
 
 .button-row {
@@ -141,6 +160,7 @@ button:disabled {
 }
 
 .bar {
+  position: relative;
   flex: 1 1 0;
   min-width: 4px;
   border-radius: 6px 6px 2px 2px;
@@ -156,12 +176,125 @@ button:disabled {
   background: var(--swap);
 }
 
+.bar.set {
+  background: #7c6af0;
+}
+
 .bar.mark {
   background: var(--mark);
 }
 
 .bar.access {
   background: color-mix(in srgb, var(--compare) 60%, var(--bar));
+}
+
+.bar-label {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.65rem;
+  color: var(--text);
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.viz-stage {
+  display: grid;
+  gap: 16px;
+}
+
+.viz-stage[data-layout="main-only"] {
+  grid-template-columns: 1fr;
+}
+
+.viz-stage[data-layout="merge"] {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.viz-stage[data-layout="merge"] .viz-panel-main {
+  grid-column: 1 / -1;
+}
+
+.viz-stage[data-layout="histogram"],
+.viz-stage[data-layout="aux"] {
+  grid-template-columns: 1fr;
+}
+
+.viz-stage[data-layout="buckets"] {
+  grid-template-columns: 1fr;
+}
+
+.viz-panel {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 8px;
+  transition: border-color 0.15s ease;
+}
+
+.viz-panel.active-structure {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.viz-panel-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.viz-panel-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.viz-panel-meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.chart-aux {
+  height: 180px;
+}
+
+.viz-panel[data-kind="histogram"] .chart-aux {
+  height: 160px;
+}
+
+.buckets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+}
+
+.bucket-cell {
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 6px;
+  min-height: 120px;
+}
+
+.bucket-cell.active {
+  border-color: var(--accent);
+}
+
+.bucket-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.chart-bucket {
+  height: 90px;
+  padding: 4px;
+}
+
+@media (max-width: 899px) {
+  .viz-stage[data-layout="merge"] {
+    grid-template-columns: 1fr;
+  }
 }
 
 .details-panel {
@@ -224,5 +357,11 @@ button:disabled {
 
   .button-row {
     grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1100px) {
+  .controls {
+    grid-template-columns: 2fr 1fr 1fr 1.4fr 0.8fr 0.8fr 1.2fr;
   }
 }

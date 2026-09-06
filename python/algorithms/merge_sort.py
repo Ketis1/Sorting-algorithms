@@ -7,33 +7,34 @@ Time Complexity: O(n log n)
 Space Complexity: O(n)
 """
 
+from _tracking import aux_array, mark, plain_copy
+
+
 def merge_sort(arr):
-    if len(arr) > 1:
-        mid = len(arr) // 2
-        L = arr[:mid]
-        R = arr[mid:]
+    def sort_range(lo, hi):
+        if hi - lo <= 1:
+            return
 
-        merge_sort(L)
-        merge_sort(R)
+        mid = (lo + hi) // 2
+        mark(arr, list(range(lo, hi)), f"divide [{lo},{hi})")
+        sort_range(lo, mid)
+        sort_range(mid, hi)
 
-        i = j = k = 0
+        left_vals = plain_copy(arr[lo:mid])
+        right_vals = plain_copy(arr[mid:hi])
+        left = aux_array(arr, "left", values=left_vals, label="Left")
+        right = aux_array(arr, "right", values=right_vals, label="Right")
 
-        while i < len(L) and j < len(R):
-            if L[i] < R[j]:
-                arr[k] = L[i]
+        mark(arr, list(range(lo, hi)), f"merge [{lo},{hi})")
+        i = j = 0
+        for k in range(lo, hi):
+            if i < len(left) and (j >= len(right) or left[i] <= right[j]):
+                arr[k] = left[i]
                 i += 1
             else:
-                arr[k] = R[j]
+                arr[k] = right[j]
                 j += 1
-            k += 1
 
-        while i < len(L):
-            arr[k] = L[i]
-            i += 1
-            k += 1
-
-        while j < len(R):
-            arr[k] = R[j]
-            j += 1
-            k += 1
+    if len(arr) > 1:
+        sort_range(0, len(arr))
     return arr

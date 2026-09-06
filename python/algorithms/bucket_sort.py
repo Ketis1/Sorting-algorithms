@@ -7,30 +7,43 @@ Time Complexity: O(n + k) - Average and Best Case (where k is the number of buck
 Space Complexity: O(n + k)
 """
 
+from _tracking import aux_buckets, mark, plain_copy
+
+
+def _insertion_sort_bucket(bucket):
+    for i in range(1, len(bucket)):
+        j = i
+        while j > 0 and bucket[j] < bucket[j - 1]:
+            bucket[j], bucket[j - 1] = bucket[j - 1], bucket[j]
+            j -= 1
+
+
 def bucket_sort(arr):
     if len(arr) == 0:
         return arr
 
-    min_val = min(arr)
-    max_val = max(arr)
+    plain = plain_copy(arr)
+    min_val = min(plain)
+    max_val = max(plain)
     bucket_count = len(arr)
-    
-    # Calculate bucket size to group elements effectively
+
     bucket_size = max(1, (max_val - min_val) / bucket_count)
-    buckets = [[] for _ in range(bucket_count + 1)]
+    buckets = aux_buckets(arr, "buckets", bucket_count + 1, label="Buckets")
 
-    for i in range(len(arr)):
-        # Determine the bucket index for the element
-        index = int((arr[i] - min_val) / bucket_size)
-        buckets[index].append(arr[i])
+    mark(arr, list(range(len(arr))), "scatter into buckets")
+    for value in plain:
+        index = int((value - min_val) / bucket_size)
+        buckets[index].append(value)
 
-    sorted_arr = []
+    mark(arr, list(range(len(arr))), "sort buckets")
     for bucket in buckets:
-        # Sort individual bucket (insertion sort behavior from builtin sort)
-        bucket.sort()
-        sorted_arr.extend(bucket)
+        _insertion_sort_bucket(bucket)
 
-    for i in range(len(arr)):
-        arr[i] = sorted_arr[i]
+    mark(arr, list(range(len(arr))), "gather from buckets")
+    write = 0
+    for bucket in buckets:
+        for item in bucket:
+            arr[write] = item
+            write += 1
 
     return arr

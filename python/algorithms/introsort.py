@@ -8,6 +8,9 @@ Space Complexity: O(log n)
 """
 import math
 
+from _tracking import mark
+
+
 def introsort(arr):
     def heapify(arr, n, i, start):
         largest = i
@@ -25,6 +28,7 @@ def introsort(arr):
             heapify(arr, n, largest, start)
 
     def heap_sort(arr, start, end):
+        mark(arr, list(range(start, end)), "introsort → heapsort")
         n = end - start
         for i in range(n // 2 - 1, -1, -1):
             heapify(arr, n, i, start)
@@ -34,6 +38,7 @@ def introsort(arr):
             heapify(arr, i, 0, start)
 
     def partition(arr, low, high):
+        mark(arr, list(range(low, high + 1)), f"introsort partition [{low},{high}]")
         pivot = arr[high]
         i = low - 1
         for j in range(low, high):
@@ -46,7 +51,7 @@ def introsort(arr):
     def introsort_util(arr, start, end, depth_limit):
         n = end - start
         if n < 16:
-            # For small sizes, insertion sort is usually used in actual implementations.
+            mark(arr, list(range(start, end + 1)), "introsort → insertion")
             for i in range(start + 1, end + 1):
                 key = arr[i]
                 j = i - 1
@@ -60,13 +65,14 @@ def introsort(arr):
             heap_sort(arr, start, end + 1)
             return
 
+        mark(arr, list(range(start, end + 1)), f"introsort quick depth={depth_limit}")
         pivot = partition(arr, start, end)
         introsort_util(arr, start, pivot - 1, depth_limit - 1)
         introsort_util(arr, pivot + 1, end, depth_limit - 1)
 
     if not arr:
         return arr
-    
+
     max_depth = 2 * math.floor(math.log2(len(arr)))
     if max_depth <= 0:
         max_depth = 1

@@ -8,6 +8,9 @@ Time Complexity: O(n log n) - Worst and Average Case, O(n) - Best Case
 Space Complexity: O(n)
 """
 
+from _tracking import aux_array, mark, plain_copy
+
+
 def timsort(arr):
     MIN_MERGE = 32
 
@@ -19,6 +22,7 @@ def timsort(arr):
         return n + r
 
     def insertion_sort(arr, left, right):
+        mark(arr, list(range(left, right + 1)), f"insertion run [{left},{right}]")
         for i in range(left + 1, right + 1):
             j = i
             while j > left and arr[j] < arr[j - 1]:
@@ -27,13 +31,12 @@ def timsort(arr):
 
     def merge(arr, l, m, r):
         len1, len2 = m - l + 1, r - m
-        left_arr, right_arr = [], []
-        
-        for i in range(0, len1):
-            left_arr.append(arr[l + i])
-        for i in range(0, len2):
-            right_arr.append(arr[m + 1 + i])
+        left_vals = plain_copy(arr[l : m + 1])
+        right_vals = plain_copy(arr[m + 1 : r + 1])
+        left_arr = aux_array(arr, "left", values=left_vals, label="Left run")
+        right_arr = aux_array(arr, "right", values=right_vals, label="Right run")
 
+        mark(arr, list(range(l, r + 1)), f"merge [{l},{r}]")
         i, j, k = 0, 0, l
 
         while i < len1 and j < len2:
@@ -70,7 +73,7 @@ def timsort(arr):
         for left in range(0, n, 2 * size):
             mid = min(n - 1, left + size - 1)
             right = min((left + 2 * size - 1), (n - 1))
-            
+
             if mid < right:
                 merge(arr, left, mid, right)
 

@@ -7,13 +7,26 @@ Time Complexity: O(n)
 Space Complexity: O(1) in-place or O(n) for new list
 """
 
+from _tracking import mark, plain_copy
+
+
 def stalin_sort(arr):
     if not arr:
         return arr
-    sorted_arr = [arr[0]]
-    for i in range(1, len(arr)):
-        if arr[i] >= sorted_arr[-1]:
-            sorted_arr.append(arr[i])
+
+    plain = plain_copy(arr)
+    kept = [plain[0]]
+    eliminated = []
+    for i in range(1, len(plain)):
+        if plain[i] >= kept[-1]:
+            kept.append(plain[i])
+        else:
+            eliminated.append(i)
+
+    if eliminated:
+        mark(arr, eliminated, "eliminate out-of-order")
+
     arr.clear()
-    arr.extend(sorted_arr)
+    arr.extend(kept)
+    mark(arr, list(range(len(arr))), "surviving sorted prefix")
     return arr

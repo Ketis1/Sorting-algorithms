@@ -31,6 +31,31 @@
           <input id="speed" type="range" min="5" max="500" value="50" />
         </div>
 
+        <div class="control-group">
+          <label for="array-mode">Array generation</label>
+          <select id="array-mode">
+            <option value="unique">Unique 1…n (classic)</option>
+            <option value="range">Custom range</option>
+          </select>
+        </div>
+
+        <div class="control-group array-range-controls" id="array-min-group">
+          <label for="array-min">Min value</label>
+          <input id="array-min" type="number" value="1" step="1" />
+        </div>
+
+        <div class="control-group array-range-controls" id="array-max-group">
+          <label for="array-max">Max value</label>
+          <input id="array-max" type="number" value="10" step="1" />
+        </div>
+
+        <div class="control-group array-range-controls" id="array-duplicates-group">
+          <label class="checkbox-label" for="array-duplicates">
+            <input id="array-duplicates" type="checkbox" checked />
+            Allow duplicates
+          </label>
+        </div>
+
         <div class="button-row">
           <button id="shuffle-btn" type="button">Shuffle</button>
           <button id="play-btn" type="button">Play</button>
@@ -52,7 +77,15 @@
       </section>
 
       <section class="visualizer panel">
-        <div id="chart" class="chart" aria-label="Sorting visualization"></div>
+        <div id="viz-stage" class="viz-stage" data-layout="main-only" aria-label="Sorting visualization">
+          <div class="viz-panel viz-panel-main" data-structure="main">
+            <div class="viz-panel-header">
+              <h3>Main</h3>
+              <span class="viz-panel-meta"></span>
+            </div>
+            <div id="chart" class="chart" aria-label="Main array"></div>
+          </div>
+        </div>
       </section>
 
       <section class="panel details-panel">

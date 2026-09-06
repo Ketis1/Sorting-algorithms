@@ -6,34 +6,43 @@ Time Complexity: O(nk) where k is the number of digits
 Space Complexity: O(n+k)
 """
 
+from _tracking import aux_array, aux_histogram, mark, plain_copy
+
+
 def radix_sort(arr):
     if not arr:
         return arr
-    
-    max_val = max(arr)
+
+    plain = plain_copy(arr)
+    max_val = max(plain)
     exp = 1
 
     while max_val // exp > 0:
         n = len(arr)
-        output = [0] * n
-        count = [0] * 10
+        output = aux_array(arr, "output", size=n, fill=0, label=f"Output (exp={exp})")
+        count = aux_histogram(arr, "count", size=10, fill=0, label=f"Digit count (exp={exp})")
 
+        mark(arr, list(range(n)), f"counting digit exp={exp}")
+        current = plain_copy(arr)
         for i in range(n):
-            index = arr[i] // exp
-            count[index % 10] += 1
+            digit = (current[i] // exp) % 10
+            count[digit] += 1
 
         for i in range(1, 10):
             count[i] += count[i - 1]
 
+        mark(arr, list(range(n)), f"placing digit exp={exp}")
         i = n - 1
         while i >= 0:
-            index = arr[i] // exp
-            output[count[index % 10] - 1] = arr[i]
-            count[index % 10] -= 1
+            digit = (current[i] // exp) % 10
+            pos = int(count[digit]) - 1
+            output[pos] = current[i]
+            count[digit] = pos
             i -= 1
 
+        mark(arr, list(range(n)), f"writeback exp={exp}")
         for i in range(n):
             arr[i] = output[i]
-            
+
         exp *= 10
     return arr

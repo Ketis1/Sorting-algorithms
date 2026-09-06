@@ -1,10 +1,14 @@
-import { Visualizer, highlightsFromStep } from "./visualizer.js";
+import { StageController } from "./visualizer.js";
 
 const algorithmSelect = document.getElementById("algorithm-select");
 const arraySizeInput = document.getElementById("array-size");
 const arraySizeValue = document.getElementById("array-size-value");
 const speedInput = document.getElementById("speed");
 const speedValue = document.getElementById("speed-value");
+const arrayModeSelect = document.getElementById("array-mode");
+const arrayMinInput = document.getElementById("array-min");
+const arrayMaxInput = document.getElementById("array-max");
+const arrayDuplicatesInput = document.getElementById("array-duplicates");
 const shuffleBtn = document.getElementById("shuffle-btn");
 const playBtn = document.getElementById("play-btn");
 const pauseBtn = document.getElementById("pause-btn");
@@ -20,9 +24,20 @@ const compareCount = document.getElementById("compare-count");
 const swapCount = document.getElementById("swap-count");
 const vizTier = document.getElementById("viz-tier");
 const statusMessage = document.getElementById("status-message");
-const chart = document.getElementById("chart");
+const stage = document.getElementById("viz-stage");
 
-const visualizer = new Visualizer(chart);
+const visualizer = new StageController(stage);
+
+const MAX_HISTOGRAM_RANGE = 200;
+const HISTOGRAM_ALGORITHMS = new Set(["counting_sort", "pigeonhole_sort"]);
+
+const ARRAY_PRESETS = {
+  counting_sort: { mode: "range", min: 1, max: 9, duplicates: true },
+  pigeonhole_sort: { mode: "range", min: 1, max: 9, duplicates: true },
+  radix_sort: { mode: "range", min: 10, max: 99, duplicates: true },
+  bucket_sort: { mode: "range", min: 1, max: 20, duplicates: true },
+  default: { mode: "unique", min: 1, max: 30, duplicates: false },
+};
 
 const state = {
   algorithms: [],
@@ -34,13 +49,75 @@ const state = {
   sortResult: null,
 };
 
-function shuffleArray(size) {
-  const values = Array.from({ length: size }, (_, index) => index + 1);
+function fisherYates(values) {
   for (let i = values.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [values[i], values[j]] = [values[j], values[i]];
   }
   return values;
+}
+
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function getArrayGenerationOptions() {
+  return {
+    mode: arrayModeSelect.value,
+    size: Number(arraySizeInput.value),
+    min: Number(arrayMinInput.value),
+    max: Number(arrayMaxInput.value),
+    duplicates: arrayDuplicatesInput.checked,
+  };
+}
+
+function syncArrayControlsUi() {
+  const isRange = arrayModeSelect.value === "range";
+  document.querySelectorAll(".array-range-controls").forEach((element) => {
+    element.hidden = !isRange;
+  });
+  arrayMinInput.disabled = !isRange;
+  arrayMaxInput.disabled = !isRange;
+  arrayDuplicatesInput.disabled = !isRange;
+}
+
+function applyAlgorithmArrayPreset(algorithmId, { reshuffle = true } = {}) {
+  const preset = ARRAY_PRESETS[algorithmId] || ARRAY_PRESETS.default;
+  arrayModeSelect.value = preset.mode;
+  arrayMinInput.value = String(preset.min);
+  arrayMaxInput.value = String(preset.max);
+  arrayDuplicatesInput.checked = preset.duplicates;
+  syncArrayControlsUi();
+  if (reshuffle) {
+    shuffle();
+  }
+}
+
+function buildArray({ mode, size, min, max, duplicates }) {
+  if (mode === "unique") {
+    return fisherYates(Array.from({ length: size }, (_, index) => index + 1));
+  }
+
+  if (!Number.isInteger(min) || !Number.isInteger(max)) {
+    throw new Error("Min and max must be integers.");
+  }
+  if (min > max) {
+    throw new Error("Min value cannot be greater than max value.");
+  }
+
+  const span = max - min + 1;
+  if (!duplicates && span < size) {
+    throw new Error(
+      `Need at least ${size} distinct values in [${min}, ${max}] (only ${span} available).`,
+    );
+  }
+
+  if (duplicates) {
+    return Array.from({ length: size }, () => randomInt(min, max));
+  }
+
+  const pool = Array.from({ length: span }, (_, index) => min + index);
+  return fisherYates(pool).slice(0, size);
 }
 
 function getSelectedAlgorithm() {
@@ -128,16 +205,6 @@ function updateStats() {
   vizTier.textContent = state.sortResult?.viz_tier ?? getSelectedAlgorithm()?.viz_tier ?? "-";
 }
 
-function resolveStepArray(stepIndex) {
-  for (let index = stepIndex; index >= 0; index -= 1) {
-    const array = state.steps[index]?.array;
-    if (array) {
-      return array;
-    }
-  }
-  return state.sortResult?.initial ?? state.currentArray;
-}
-
 function isVisualStep(step) {
   return step && step.type !== "access";
 }
@@ -151,17 +218,20 @@ function nextVisualStepIndex(fromIndex) {
   return state.steps.length - 1;
 }
 
-function renderCurrentStep() {
+function showStep() {
   if (!state.steps.length) {
-    visualizer.render(state.currentArray);
+    visualizer.reset(state.currentArray);
     updateStats();
     return;
   }
 
   const step = state.steps[Math.min(state.stepIndex, state.steps.length - 1)];
-  const highlights = highlightsFromStep(step);
-  const array = step.array ?? resolveStepArray(state.stepIndex);
-  visualizer.render(array, highlights);
+  visualizer.renderStep(step, state.sortResult?.initial ?? state.currentArray);
+
+  if (step?.type === "mark" && step.label) {
+    setStatus(step.label);
+  }
+
   updateStats();
 }
 
@@ -233,7 +303,17 @@ async function runSort() {
     const warnings = [...(data.warnings || []), ...(data.messages || [])];
     setStatus(warnings.join(" · "), warnings.length > 0);
 
-    renderCurrentStep();
+    visualizer.reset(data.initial);
+    state.stepIndex = 0;
+    // Fast-forward structure snapshots without painting until the first visual step.
+    for (let index = 0; index <= 0 && index < state.steps.length; index += 1) {
+      const step = state.steps[index];
+      if (step.array) {
+        visualizer.state.main.values = [...step.array];
+      }
+      visualizer.applyStepStructures(step);
+    }
+    showStep();
   } finally {
     playBtn.disabled = false;
   }
@@ -245,7 +325,7 @@ function resetVisualization() {
   state.stepIndex = 0;
   state.sortResult = null;
   setStatus("");
-  visualizer.render(state.currentArray);
+  visualizer.reset(state.currentArray);
   updateStats();
 }
 
@@ -273,8 +353,22 @@ function play() {
       return;
     }
 
+    const previousIndex = state.stepIndex;
     state.stepIndex = nextVisualStepIndex(state.stepIndex);
-    renderCurrentStep();
+    // Apply skipped non-visual steps' snapshots too.
+    for (let index = previousIndex + 1; index <= state.stepIndex; index += 1) {
+      const step = state.steps[index];
+      if (step.array) {
+        visualizer.state.main.values = [...step.array];
+      }
+      visualizer.applyStepStructures(step);
+    }
+    visualizer.renderAll(state.steps[state.stepIndex]);
+    const step = state.steps[state.stepIndex];
+    if (step?.type === "mark" && step.label) {
+      setStatus(step.label);
+    }
+    updateStats();
     state.playTimer = setTimeout(tick, Number(speedInput.value));
   };
 
@@ -287,15 +381,53 @@ function stepForward() {
     return;
   }
   if (state.stepIndex < state.steps.length - 1) {
+    const previousIndex = state.stepIndex;
     state.stepIndex = nextVisualStepIndex(state.stepIndex);
-    renderCurrentStep();
+    for (let index = previousIndex + 1; index <= state.stepIndex; index += 1) {
+      const step = state.steps[index];
+      if (step.array) {
+        visualizer.state.main.values = [...step.array];
+      }
+      visualizer.applyStepStructures(step);
+    }
+    visualizer.renderAll(state.steps[state.stepIndex]);
+    const step = state.steps[state.stepIndex];
+    if (step?.type === "mark" && step.label) {
+      setStatus(step.label);
+    }
+    updateStats();
   }
 }
 
 function shuffle() {
   stopPlayback();
-  state.currentArray = shuffleArray(Number(arraySizeInput.value));
-  resetVisualization();
+  try {
+    const options = getArrayGenerationOptions();
+    const algorithm = getSelectedAlgorithm();
+    if (
+      algorithm &&
+      HISTOGRAM_ALGORITHMS.has(algorithm.id) &&
+      options.mode === "range"
+    ) {
+      const span = options.max - options.min + 1;
+      if (span > MAX_HISTOGRAM_RANGE) {
+        throw new Error(
+          `Value range ${span} exceeds visualization limit of ${MAX_HISTOGRAM_RANGE} for ${algorithm.name}.`,
+        );
+      }
+    }
+
+    state.currentArray = buildArray(options);
+    resetVisualization();
+    if (options.mode === "unique") {
+      setStatus(`Generated unique values 1…${options.size}`);
+    } else {
+      const dup = options.duplicates ? "with duplicates" : "unique in range";
+      setStatus(`Generated ${options.size} values in [${options.min}, ${options.max}] (${dup})`);
+    }
+  } catch (error) {
+    setStatus(error.message, true);
+  }
 }
 
 arraySizeInput.addEventListener("input", () => {
@@ -307,9 +439,18 @@ speedInput.addEventListener("input", () => {
   speedValue.textContent = speedInput.value;
 });
 
+arrayModeSelect.addEventListener("change", () => {
+  syncArrayControlsUi();
+  shuffle();
+});
+
+arrayMinInput.addEventListener("change", shuffle);
+arrayMaxInput.addEventListener("change", shuffle);
+arrayDuplicatesInput.addEventListener("change", shuffle);
+
 algorithmSelect.addEventListener("change", () => {
   updateAlgorithmMeta();
-  resetVisualization();
+  applyAlgorithmArrayPreset(algorithmSelect.value, { reshuffle: true });
 });
 
 shuffleBtn.addEventListener("click", shuffle);
@@ -322,7 +463,8 @@ copyCodeBtn.addEventListener("click", copyAlgorithmSource);
 async function init() {
   try {
     await fetchAlgorithms();
-    shuffle();
+    syncArrayControlsUi();
+    applyAlgorithmArrayPreset(algorithmSelect.value, { reshuffle: true });
   } catch (error) {
     setStatus(error.message, true);
   }

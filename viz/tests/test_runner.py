@@ -37,3 +37,34 @@ def test_sort_timeout_returns_warning():
         timeout_ms=100,
     )
     assert any("timeout" in warning.lower() for warning in result["warnings"])
+
+
+def test_counting_sort_emits_aux_structure_steps():
+    result = run_sort("counting_sort", [4, 2, 2, 8, 3, 3, 1], max_steps=2000)
+    assert result["result"] == [1, 2, 2, 3, 3, 4, 8]
+    assert result["viz_tier"] == "full"
+    structures = {step.get("structure") for step in result["steps"]}
+    assert "count" in structures
+    assert "output" in structures
+
+
+def test_merge_sort_emits_left_right_structures():
+    result = run_sort("merge_sort", [5, 1, 4, 2], max_steps=2000)
+    assert result["result"] == [1, 2, 4, 5]
+    structures = {step.get("structure") for step in result["steps"]}
+    assert "left" in structures
+    assert "right" in structures
+
+
+def test_bucket_sort_emits_bucket_structure():
+    result = run_sort("bucket_sort", [5, 1, 4, 2, 8], max_steps=3000)
+    assert result["result"] == [1, 2, 4, 5, 8]
+    structures = {step.get("structure") for step in result["steps"]}
+    assert "buckets" in structures
+
+
+def test_quick_sort_is_instrumented_in_place():
+    result = run_sort("quick_sort", [5, 1, 4, 2, 8], max_steps=2000)
+    assert result["result"] == [1, 2, 4, 5, 8]
+    assert result["viz_tier"] == "full"
+    assert any(step["type"] in {"swap", "set", "mark"} for step in result["steps"])

@@ -7,87 +7,63 @@ Time Complexity: O(n log_3 n) - Worst, Average, Best Case
 Space Complexity: O(n)
 """
 
+from _tracking import aux_array, mark, plain_copy
+
+
 def three_way_merge_sort(arr):
-    if len(arr) <= 1:
-        return arr
-        
-    def merge(arr, low, mid1, mid2, high, dest):
-        i, j, k, l = low, mid1, mid2, low
-        
-        while i < mid1 and j < mid2 and k < high:
-            if arr[i] < arr[j]:
-                if arr[i] < arr[k]:
-                    dest[l] = arr[i]
-                    i += 1
-                else:
-                    dest[l] = arr[k]
-                    k += 1
-            else:
-                if arr[j] < arr[k]:
-                    dest[l] = arr[j]
-                    j += 1
-                else:
-                    dest[l] = arr[k]
-                    k += 1
-            l += 1
-            
-        while i < mid1 and j < mid2:
-            if arr[i] < arr[j]:
-                dest[l] = arr[i]
-                i += 1
-            else:
-                dest[l] = arr[j]
-                j += 1
-            l += 1
-            
-        while j < mid2 and k < high:
-            if arr[j] < arr[k]:
-                dest[l] = arr[j]
-                j += 1
-            else:
-                dest[l] = arr[k]
-                k += 1
-            l += 1
-            
-        while i < mid1 and k < high:
-            if arr[i] < arr[k]:
-                dest[l] = arr[i]
-                i += 1
-            else:
-                dest[l] = arr[k]
-                k += 1
-            l += 1
-            
-        while i < mid1:
-            dest[l] = arr[i]
-            l += 1
-            i += 1
-            
-        while j < mid2:
-            dest[l] = arr[j]
-            l += 1
-            j += 1
-            
-        while k < high:
-            dest[l] = arr[k]
-            l += 1
-            k += 1
+    def merge_ranges(lo, mid1, mid2, hi):
+        left_vals = plain_copy(arr[lo:mid1])
+        mid_vals = plain_copy(arr[mid1:mid2])
+        right_vals = plain_copy(arr[mid2:hi])
+        left = aux_array(arr, "left", values=left_vals, label="Left")
+        mid = aux_array(arr, "mid", values=mid_vals, label="Middle")
+        right = aux_array(arr, "right", values=right_vals, label="Right")
 
-    def sort_recursive(arr, low, high, dest):
-        if high - low < 2:
+        mark(arr, list(range(lo, hi)), f"3-way merge [{lo},{hi})")
+        i = j = k = 0
+        for dest in range(lo, hi):
+            candidates = []
+            if i < len(left):
+                candidates.append((left[i], 0))
+            if j < len(mid):
+                candidates.append((mid[j], 1))
+            if k < len(right):
+                candidates.append((right[k], 2))
+            value, which = min(candidates, key=lambda item: item[0])
+            arr[dest] = value
+            if which == 0:
+                i += 1
+            elif which == 1:
+                j += 1
+            else:
+                k += 1
+
+    def sort_range(lo, hi):
+        length = hi - lo
+        if length <= 1:
             return
-            
-        mid1 = low + ((high - low) // 3)
-        mid2 = low + 2 * ((high - low) // 3) + 1
-        
-        sort_recursive(dest, low, mid1, arr)
-        sort_recursive(dest, mid1, mid2, arr)
-        sort_recursive(dest, mid2, high, arr)
-        
-        merge(dest, low, mid1, mid2, high, arr)
+        if length == 2:
+            mark(arr, [lo, lo + 1], "sort pair")
+            if arr[lo] > arr[lo + 1]:
+                arr[lo], arr[lo + 1] = arr[lo + 1], arr[lo]
+            return
 
-    if not arr:
-        return arr
-    dest = arr.copy()
-    sort_recursive(dest, 0, len(arr), arr)
+        third = length // 3
+        mid1 = lo + max(1, third)
+        mid2 = lo + max(2, 2 * third)
+        if mid1 >= hi:
+            mid1 = lo + 1
+        if mid2 <= mid1:
+            mid2 = mid1 + 1
+        if mid2 >= hi:
+            mid2 = hi - 1
+
+        mark(arr, list(range(lo, hi)), f"divide [{lo},{hi})")
+        sort_range(lo, mid1)
+        sort_range(mid1, mid2)
+        sort_range(mid2, hi)
+        merge_ranges(lo, mid1, mid2, hi)
+
+    if len(arr) > 1:
+        sort_range(0, len(arr))
     return arr

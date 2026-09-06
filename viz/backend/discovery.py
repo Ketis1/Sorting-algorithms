@@ -23,18 +23,8 @@ TIME_RE = re.compile(r"Time Complexity:\s*(.+)", re.IGNORECASE)
 SPACE_RE = re.compile(r"Space Complexity:\s*(.+)", re.IGNORECASE)
 ALGORITHM_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
-PARTIAL_ALGORITHMS = {
-    "merge_sort",
-    "radix_sort",
-    "bucket_sort",
-    "timsort",
-    "introsort",
-    "three_way_merge_sort",
-    "counting_sort",
-    "pigeonhole_sort",
-    "thanos_sort",
-    "stalin_sort",
-}
+PARTIAL_ALGORITHMS = set()
+
 
 _ALGORITHM_CACHE: dict[Path, list["AlgorithmInfo"]] = {}
 
@@ -186,6 +176,12 @@ def validate_algorithm_id(algorithm_id: str, algorithms_dir: Path | None = None)
 
 
 def _discover_algorithms_uncached(directory: Path) -> list[AlgorithmInfo]:
+    import sys
+
+    directory_str = str(directory.resolve())
+    if directory_str not in sys.path:
+        sys.path.insert(0, directory_str)
+
     overrides = _load_overrides()
     explanations = _load_explanations()
     algorithms: list[AlgorithmInfo] = []
@@ -254,6 +250,13 @@ def _discover_algorithms_uncached(directory: Path) -> list[AlgorithmInfo]:
 
 def load_algorithm_function(algorithm_id: str, algorithms_dir: Path | None = None):
     path = validate_algorithm_id(algorithm_id, algorithms_dir)
+    directory = path.parent
+
+    import sys
+
+    directory_str = str(directory)
+    if directory_str not in sys.path:
+        sys.path.insert(0, directory_str)
 
     spec = importlib.util.spec_from_file_location(algorithm_id, path)
     if spec is None or spec.loader is None:
