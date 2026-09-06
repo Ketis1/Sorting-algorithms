@@ -25,7 +25,11 @@ def test_list_algorithms(client):
     assert response.status_code == 200
     payload = response.json()
     assert isinstance(payload, list)
-    assert any(item["id"] == "bubble_sort" for item in payload)
+    bubble = next(item for item in payload if item["id"] == "bubble_sort")
+    assert "explanation" in bubble
+    assert "source" in bubble
+    assert "def bubble_sort" in bubble["source"]
+    assert "Bubble Sort" in bubble["explanation"] or "bubble" in bubble["explanation"].lower()
 
 
 def test_sort_bubble_sort(client):

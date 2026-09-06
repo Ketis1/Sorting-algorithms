@@ -11,6 +11,9 @@ const pauseBtn = document.getElementById("pause-btn");
 const stepBtn = document.getElementById("step-btn");
 const resetBtn = document.getElementById("reset-btn");
 const algorithmDescription = document.getElementById("algorithm-description");
+const algorithmExplanation = document.getElementById("algorithm-explanation");
+const algorithmSource = document.getElementById("algorithm-source");
+const copyCodeBtn = document.getElementById("copy-code-btn");
 const stepCount = document.getElementById("step-count");
 const stepTotal = document.getElementById("step-total");
 const compareCount = document.getElementById("compare-count");
@@ -88,6 +91,32 @@ function updateAlgorithmMeta() {
     reason.textContent = algorithm.reason;
     algorithmDescription.appendChild(reason);
   }
+
+  algorithmExplanation.textContent =
+    algorithm.explanation || algorithm.description || "No detailed explanation available.";
+
+  const codeNode = algorithmSource.querySelector("code") || algorithmSource;
+  codeNode.textContent = algorithm.source || "# Source unavailable";
+  copyCodeBtn.textContent = "Copy";
+}
+
+async function copyAlgorithmSource() {
+  const algorithm = getSelectedAlgorithm();
+  const source = algorithm?.source;
+  if (!source) {
+    setStatus("No source available to copy.", true);
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(source);
+    copyCodeBtn.textContent = "Copied";
+    setTimeout(() => {
+      copyCodeBtn.textContent = "Copy";
+    }, 1500);
+  } catch (error) {
+    setStatus("Could not copy to clipboard.", true);
+  }
 }
 
 function updateStats() {
@@ -107,6 +136,19 @@ function resolveStepArray(stepIndex) {
     }
   }
   return state.sortResult?.initial ?? state.currentArray;
+}
+
+function isVisualStep(step) {
+  return step && step.type !== "access";
+}
+
+function nextVisualStepIndex(fromIndex) {
+  for (let index = fromIndex + 1; index < state.steps.length; index += 1) {
+    if (isVisualStep(state.steps[index])) {
+      return index;
+    }
+  }
+  return state.steps.length - 1;
 }
 
 function renderCurrentStep() {
@@ -231,7 +273,7 @@ function play() {
       return;
     }
 
-    state.stepIndex += 1;
+    state.stepIndex = nextVisualStepIndex(state.stepIndex);
     renderCurrentStep();
     state.playTimer = setTimeout(tick, Number(speedInput.value));
   };
@@ -245,7 +287,7 @@ function stepForward() {
     return;
   }
   if (state.stepIndex < state.steps.length - 1) {
-    state.stepIndex += 1;
+    state.stepIndex = nextVisualStepIndex(state.stepIndex);
     renderCurrentStep();
   }
 }
@@ -258,6 +300,7 @@ function shuffle() {
 
 arraySizeInput.addEventListener("input", () => {
   arraySizeValue.textContent = arraySizeInput.value;
+  shuffle();
 });
 
 speedInput.addEventListener("input", () => {
@@ -274,6 +317,7 @@ playBtn.addEventListener("click", play);
 pauseBtn.addEventListener("click", stopPlayback);
 stepBtn.addEventListener("click", stepForward);
 resetBtn.addEventListener("click", resetVisualization);
+copyCodeBtn.addEventListener("click", copyAlgorithmSource);
 
 async function init() {
   try {

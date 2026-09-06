@@ -69,6 +69,36 @@ class TrackedValue:
         right = other.value if isinstance(other, TrackedValue) else other
         return self.value % right
 
+    def __sub__(self, other: Any) -> Any:
+        right = other.value if isinstance(other, TrackedValue) else other
+        return self.value - right
+
+    def __add__(self, other: Any) -> Any:
+        right = other.value if isinstance(other, TrackedValue) else other
+        return self.value + right
+
+    def __mul__(self, other: Any) -> Any:
+        right = other.value if isinstance(other, TrackedValue) else other
+        return self.value * right
+
+    def __truediv__(self, other: Any) -> Any:
+        right = other.value if isinstance(other, TrackedValue) else other
+        return self.value / right
+
+    def __radd__(self, other: Any) -> Any:
+        left = other.value if isinstance(other, TrackedValue) else other
+        return left + self.value
+
+    def __rsub__(self, other: Any) -> Any:
+        left = other.value if isinstance(other, TrackedValue) else other
+        return left - self.value
+
+    def __abs__(self) -> Any:
+        return abs(self.value)
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
     def __repr__(self) -> str:
         return repr(self.value)
 

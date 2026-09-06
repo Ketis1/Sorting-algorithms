@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import multiprocessing
 from contextlib import redirect_stdout
+from queue import Empty
 from typing import Any
 
 from backend.config import DEFAULT_MAX_STEPS, DEFAULT_TIMEOUT_MS
@@ -86,26 +87,33 @@ def _process_target(worker, payload: dict[str, Any], queue: multiprocessing.Queu
         queue.put({"status": "error", "error": str(exc)})
 
 
+def _terminate_process(process: multiprocessing.Process) -> None:
+    if not process.is_alive():
+        return
+    process.terminate()
+    process.join(timeout=1)
+    if process.is_alive():
+        process.kill()
+        process.join()
+
+
 def _run_in_process(worker, payload: dict[str, Any], timeout_ms: int) -> dict[str, Any]:
     ctx = multiprocessing.get_context("spawn")
     queue: multiprocessing.Queue = ctx.Queue()
 
     process = ctx.Process(target=_process_target, args=(worker, payload, queue))
     process.start()
-    process.join(timeout_ms / 1000)
 
-    if process.is_alive():
-        process.terminate()
-        process.join(timeout=1)
-        if process.is_alive():
-            process.kill()
-            process.join()
+    # Read the queue before join(): on Windows a large put() can block until the
+    # parent drains the pipe, while join() waits for the child — deadlock.
+    try:
+        outcome = queue.get(timeout=timeout_ms / 1000)
+    except Empty:
+        _terminate_process(process)
         raise SortTimeoutError(f"Algorithm exceeded timeout of {timeout_ms}ms")
 
-    if queue.empty():
-        raise SortExecutionError("Sort process ended without returning a result")
+    _terminate_process(process)
 
-    outcome = queue.get()
     if outcome["status"] == "error":
         raise SortExecutionError(outcome["error"])
     return outcome["payload"]

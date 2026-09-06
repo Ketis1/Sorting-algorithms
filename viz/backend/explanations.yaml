@@ -1,0 +1,265 @@
+bubble_sort: |
+  Bubble Sort repeatedly walks through the array and compares each pair of neighbors.
+  When a left element is larger than the right one, they swap places — larger values
+  "bubble" toward the end of the list.
+
+  How a pass works:
+  1. Start at index 0.
+  2. Compare arr[j] with arr[j+1].
+  3. Swap if they are out of order.
+  4. Continue until the end of the unsorted region.
+  5. After each full pass, the largest remaining value is in its final position,
+     so the next pass can ignore one more element at the end.
+
+  This implementation stops early when a pass makes no swaps — that means the
+  array is already sorted.
+
+  Best for teaching comparisons and swaps. Slow on large random arrays (O(n²)).
+
+selection_sort: |
+  Selection Sort repeatedly finds the smallest remaining value and places it at
+  the front of the unsorted region.
+
+  How it works:
+  1. Divide the array into a sorted prefix (initially empty) and an unsorted suffix.
+  2. Scan the unsorted suffix to find the minimum.
+  3. Swap that minimum with the first unsorted element.
+  4. Grow the sorted prefix by one and repeat until nothing remains unsorted.
+
+  It always does about n²/2 comparisons, so it is consistently O(n²). It can be
+  useful when writes are expensive, because it does at most one swap per outer step.
+
+insertion_sort: |
+  Insertion Sort builds a sorted prefix one element at a time, like sorting cards
+  in your hand.
+
+  How it works:
+  1. Assume the first element is already sorted.
+  2. Take the next element (the key).
+  3. Shift larger elements in the sorted prefix one position to the right until
+     the correct spot for the key is found.
+  4. Insert the key there.
+  5. Repeat for every remaining element.
+
+  It is excellent on nearly sorted data (close to O(n)) and is often used as a
+  helper inside hybrid algorithms such as Timsort. Worst case remains O(n²).
+
+merge_sort: |
+  Merge Sort uses divide-and-conquer: split the array, sort each half, then merge
+  the sorted halves back together.
+
+  How it works:
+  1. If the array has 0 or 1 elements, it is already sorted.
+  2. Otherwise split it into a left half and a right half.
+  3. Recursively merge-sort both halves.
+  4. Merge the two sorted halves by repeatedly taking the smaller front element
+     from either half until both are empty.
+
+  Guaranteed O(n log n) time, but needs O(n) extra memory for the merge buffers.
+  It is stable when implemented carefully.
+
+quick_sort: |
+  Quick Sort also uses divide-and-conquer, but partitions around a pivot instead
+  of always splitting in the middle.
+
+  How it works:
+  1. Choose a pivot (this implementation uses the first element).
+  2. Partition remaining elements into those ≤ pivot and those > pivot.
+  3. Recursively quick-sort both partitions.
+  4. Concatenate: sorted(less) + [pivot] + sorted(greater).
+
+  Average case is O(n log n). Worst case is O(n²) when pivots are consistently
+  bad (for example already sorted input with a first-element pivot). This version
+  builds new lists, so visualization may show only start/end states.
+
+heap_sort: |
+  Heap Sort turns the array into a max-heap, then repeatedly extracts the largest
+  element into the sorted suffix.
+
+  How it works:
+  1. Heapify the array so every parent is ≥ its children (max-heap).
+  2. Swap the root (maximum) with the last unsorted element.
+  3. Shrink the heap size by one.
+  4. Restore the heap property on the reduced heap (sift-down / heapify).
+  5. Repeat until the heap is empty — the array is then sorted ascending.
+
+  Time is O(n log n) and it sorts in-place with O(1) extra space (ignoring
+  recursion/stack for helper calls).
+
+shell_sort: |
+  Shell Sort generalizes insertion sort by first sorting elements that are far
+  apart, then reducing the gap until it becomes 1 (plain insertion sort).
+
+  How it works:
+  1. Choose a gap sequence (commonly n/2, n/4, …, 1).
+  2. For the current gap h, insertion-sort every h-stride subsequence so the
+     array becomes h-sorted.
+  3. Halve the gap and repeat.
+  4. The final gap of 1 finishes with ordinary insertion sort on a nearly
+     ordered array.
+
+  Early large-gap passes move elements closer to their final positions cheaply,
+  so later insertion work is much lighter than on a fully random array.
+
+cycle_sort: |
+  Cycle Sort minimizes writes by rotating each cycle of the permutation into
+  place.
+
+  How it works:
+  1. For each position i, compute where arr[i] belongs in the sorted order.
+  2. If it is already in the correct place, move on.
+  3. Otherwise follow the cycle: put the item into its correct index, then take
+     whatever was displaced and find where that belongs, and so on.
+  4. Continue until the cycle returns to the starting position.
+
+  Theoretically optimal for write count, but comparisons are still O(n²), so it
+  is niche — useful when writing memory is especially expensive.
+
+counting_sort: |
+  Counting Sort does not compare elements. It counts how many times each key
+  appears, then writes values into output positions from those counts.
+
+  How it works:
+  1. Find the range of keys (min…max) or assume non-negative keys.
+  2. Build a count array: count[key] = number of occurrences.
+  3. Optionally prefix-sum the counts to get stable output indices.
+  4. Place each value into its computed output slot.
+  5. Copy the output back (or build the result directly).
+
+  Runs in O(n + k) where k is the key range. Fantastic for small integer ranges;
+  poor when keys are sparse or huge.
+
+bucket_sort: |
+  Bucket Sort distributes values into buckets, sorts each bucket, then
+  concatenates them.
+
+  How it works:
+  1. Create empty buckets covering the value range (or [0,1) for normalized data).
+  2. Scatter each element into the appropriate bucket.
+  3. Sort each bucket (often with insertion sort, or recursively).
+  4. Gather buckets in order into the final array.
+
+  Average case is near-linear when values are reasonably uniform across buckets.
+  Bad distributions can overload one bucket and degrade toward O(n²).
+
+radix_sort: |
+  Radix Sort sorts integers digit by digit (or by digit groups), usually from
+  least significant digit to most significant (LSD).
+
+  How it works:
+  1. Find the largest value to know how many digit places are needed.
+  2. For exponent 1, 10, 100, … process that digit place.
+  3. Stable-sort by the current digit (commonly via counting sort).
+  4. Advance to the next digit place until the highest place is done.
+
+  Time is O(n · d) where d is the number of digits/passes. Excellent for fixed-
+  width integers; not a comparison sort.
+
+pigeonhole_sort: |
+  Pigeonhole Sort is related to counting sort: put each item into a "hole"
+  indexed by its key, then read the holes in order.
+
+  How it works:
+  1. Compute min and max to get the range size N = max - min + 1.
+  2. Allocate N pigeonholes.
+  3. Place every element into hole[value - min].
+  4. Scan holes from low to high and append their contents to rebuild the array.
+
+  Best when n and the key range are similar. If the range is huge, memory use
+  becomes impractical.
+
+timsort: |
+  Timsort is a hybrid of merge sort and insertion sort designed for real-world
+  data that often contains already-ordered runs.
+
+  Conceptual flow:
+  1. Detect natural ascending/descending runs in the input.
+  2. Sort short runs with insertion sort (cheap on tiny segments).
+  3. Merge runs using merge-sort ideas, with heuristics that keep merges balanced.
+  4. Prefer patterns that minimize work on partially ordered data.
+
+  Python’s built-in list.sort() uses Timsort. Worst/average are O(n log n), and
+  nearly sorted inputs can be much closer to linear.
+
+introsort: |
+  Introsort starts like quicksort for speed, but switches strategies to avoid
+  quicksort’s O(n²) worst case.
+
+  How it works:
+  1. Begin with quicksort partitioning.
+  2. Track recursion depth.
+  3. If depth exceeds a limit (~2·log₂(n)), switch to heapsort for that segment —
+     guaranteeing O(n log n) overall.
+  4. Very small partitions may use insertion sort for lower constant factors.
+
+  This hybrid approach is used by many standard library sorts (for example C++
+  std::sort variants).
+
+three_way_merge_sort: |
+  3-Way Merge Sort is merge sort that splits into three parts instead of two.
+
+  How it works:
+  1. If the segment is tiny, it is already sorted.
+  2. Split into left, middle, and right thirds.
+  3. Recursively sort each third.
+  4. Merge three sorted sequences into one by always taking the smallest current
+     head among the three.
+
+  The recursion tree is shallower (log₃ n levels), but each merge node does more
+  work comparing three fronts. Asymptotically still Θ(n log n) up to constants.
+
+bogo_sort: |
+  Bogo Sort repeatedly shuffles the array at random until it happens to be sorted.
+
+  How it works:
+  1. Check whether the array is sorted.
+  2. If not, shuffle all elements randomly.
+  3. Repeat forever until luck produces a sorted permutation.
+
+  Average case is about O(n · n!). It is a teaching joke about randomized algorithms
+  and is disabled in the visualizer because runtime is unbounded.
+
+miracle_sort: |
+  Miracle Sort checks if the array is sorted and otherwise waits for a "miracle"
+  (in the joke: a cosmic bit-flip) before checking again.
+
+  In practice this implementation loops / sleeps and never usefully sorts. It is
+  disabled for visualization because it can block indefinitely.
+
+stalin_sort: |
+  Stalin Sort walks left to right and keeps only values that do not break
+  non-decreasing order — everything else is removed.
+
+  How it works:
+  1. Keep the first element.
+  2. For each next element, append it only if it is ≥ the last kept value.
+  3. Discard (eliminate) every out-of-order element.
+  4. Replace the original list with the surviving sorted subsequence.
+
+  The result is always sorted, but may be much shorter than the input. O(n) time.
+
+thanos_sort: |
+  Thanos Sort checks sortedness; if unsorted, it randomly deletes about half the
+  elements ("snap") and tries again.
+
+  How it works:
+  1. If the list is sorted (or empty), stop.
+  2. Otherwise remove roughly half the elements at random.
+  3. Recurse / repeat until what remains is sorted.
+
+  Guarantees a sorted result by shrinking the problem until chance succeeds.
+  Visualization may be incomplete because elements disappear.
+
+gaslight_sort: |
+  Gaslight Sort does not modify the array. It prints a confident claim that the
+  data is already perfectly sorted and returns it unchanged.
+
+  It is an esoteric joke about trusting output without verification. Complexity
+  is O(1); correctness is intentionally not guaranteed.
+
+trump_sort: |
+  Trump Sort is another joke algorithm: it boasts that the array is already the
+  best possible sorted list and returns it as-is (sometimes with theatrical
+  messages).
+
+  No real ordering work happens. Treat it as satire, not a practical sorter.

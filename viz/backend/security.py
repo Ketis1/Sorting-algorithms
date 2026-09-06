@@ -3,6 +3,8 @@ from typing import Any
 
 ALLOWED_VIZ_TIERS = frozenset({"full", "partial", "result_only", "disabled"})
 DEFAULT_TEXT_MAX_LENGTH = 500
+SOURCE_TEXT_MAX_LENGTH = 100_000
+EXPLANATION_TEXT_MAX_LENGTH = 8_000
 
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",

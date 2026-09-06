@@ -8,8 +8,14 @@ from typing import Any
 
 import yaml
 
-from backend.config import ALGORITHMS_DIR, OVERRIDES_PATH
-from backend.security import sanitize_text, sanitize_timeout_ms, sanitize_viz_tier
+from backend.config import ALGORITHMS_DIR, EXPLANATIONS_PATH, OVERRIDES_PATH
+from backend.security import (
+    EXPLANATION_TEXT_MAX_LENGTH,
+    SOURCE_TEXT_MAX_LENGTH,
+    sanitize_text,
+    sanitize_timeout_ms,
+    sanitize_viz_tier,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +44,8 @@ class AlgorithmInfo:
     id: str
     name: str
     description: str
+    explanation: str = ""
+    source: str = ""
     time_complexity: str | None = None
     space_complexity: str | None = None
     viz_tier: str = "full"
@@ -49,6 +57,8 @@ class AlgorithmInfo:
             "id": self.id,
             "name": self.name,
             "description": self.description,
+            "explanation": self.explanation,
+            "source": self.source,
             "time_complexity": self.time_complexity,
             "space_complexity": self.space_complexity,
             "viz_tier": self.viz_tier,
@@ -64,19 +74,36 @@ def _humanize(name: str) -> str:
     return " ".join(part.capitalize() for part in name.split("_"))
 
 
-def _parse_docstring(source: str) -> tuple[str, str | None, str | None]:
+def _parse_docstring(source: str) -> tuple[str, str, str | None, str | None]:
     try:
         tree = ast.parse(source)
         docstring = ast.get_docstring(tree) or ""
     except SyntaxError:
-        return "", None, None
+        return "", "", None, None
 
     lines = [line.strip() for line in docstring.splitlines() if line.strip()]
     description = lines[0] if lines else ""
     time_match = TIME_RE.search(docstring)
     space_match = SPACE_RE.search(docstring)
+
+    explanation_lines: list[str] = []
+    for line in docstring.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            if explanation_lines and explanation_lines[-1] != "":
+                explanation_lines.append("")
+            continue
+        if TIME_RE.match(stripped) or SPACE_RE.match(stripped):
+            continue
+        explanation_lines.append(stripped)
+
+    while explanation_lines and explanation_lines[-1] == "":
+        explanation_lines.pop()
+
+    explanation = "\n".join(explanation_lines).strip()
     return (
         description,
+        explanation,
         time_match.group(1).strip() if time_match else None,
         space_match.group(1).strip() if space_match else None,
     )
@@ -88,6 +115,21 @@ def _load_overrides() -> dict[str, dict[str, Any]]:
     with OVERRIDES_PATH.open(encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
     return data if isinstance(data, dict) else {}
+
+
+def _load_explanations() -> dict[str, str]:
+    if not EXPLANATIONS_PATH.exists():
+        return {}
+    with EXPLANATIONS_PATH.open(encoding="utf-8") as handle:
+        data = yaml.safe_load(handle) or {}
+    if not isinstance(data, dict):
+        return {}
+    explanations: dict[str, str] = {}
+    for key, value in data.items():
+        text = sanitize_text(value, max_length=EXPLANATION_TEXT_MAX_LENGTH)
+        if isinstance(key, str) and text:
+            explanations[key] = text
+    return explanations
 
 
 def _default_viz_tier(algorithm_id: str, module: Any) -> str:
@@ -145,6 +187,7 @@ def validate_algorithm_id(algorithm_id: str, algorithms_dir: Path | None = None)
 
 def _discover_algorithms_uncached(directory: Path) -> list[AlgorithmInfo]:
     overrides = _load_overrides()
+    explanations = _load_explanations()
     algorithms: list[AlgorithmInfo] = []
 
     for path in sorted(directory.glob("*.py")):
@@ -152,7 +195,7 @@ def _discover_algorithms_uncached(directory: Path) -> list[AlgorithmInfo]:
             continue
         algorithm_id = path.stem
         source = path.read_text(encoding="utf-8")
-        description, time_complexity, space_complexity = _parse_docstring(source)
+        description, docstring_explanation, time_complexity, space_complexity = _parse_docstring(source)
 
         spec = importlib.util.spec_from_file_location(algorithm_id, path)
         if spec is None or spec.loader is None:
@@ -187,11 +230,17 @@ def _discover_algorithms_uncached(directory: Path) -> list[AlgorithmInfo]:
                 if timeout_ms is None:
                     timeout_ms = sanitize_timeout_ms(meta.get("timeout_ms"))
 
+        explanation = explanations.get(algorithm_id) or docstring_explanation or description
+        safe_source = sanitize_text(source, max_length=SOURCE_TEXT_MAX_LENGTH) or ""
+        safe_explanation = sanitize_text(explanation, max_length=EXPLANATION_TEXT_MAX_LENGTH) or ""
+
         algorithms.append(
             AlgorithmInfo(
                 id=algorithm_id,
                 name=_humanize(algorithm_id),
                 description=sanitize_text(description) or "",
+                explanation=safe_explanation,
+                source=safe_source,
                 time_complexity=sanitize_text(time_complexity),
                 space_complexity=sanitize_text(space_complexity),
                 viz_tier=viz_tier,

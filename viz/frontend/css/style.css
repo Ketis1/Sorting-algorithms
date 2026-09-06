@@ -134,9 +134,9 @@ button:disabled {
   display: flex;
   align-items: flex-end;
   gap: 4px;
-  min-height: 360px;
+  height: 360px;
   padding: 12px 8px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
   border-radius: 12px;
 }
 
@@ -162,6 +162,58 @@ button:disabled {
 
 .bar.access {
   background: color-mix(in srgb, var(--compare) 60%, var(--bar));
+}
+
+.details-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.secondary-btn {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  padding: 8px 12px;
+}
+
+.secondary-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.explanation-body {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.code-block {
+  margin: 0;
+  max-height: 420px;
+  overflow: auto;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: #0b1220;
+  color: #d7e3f4;
+  font-family: "Cascadia Code", "Fira Code", Consolas, "Courier New", monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.code-block code {
+  white-space: pre;
 }
 
 @media (min-width: 900px) {
